@@ -1,4 +1,4 @@
-name: CI
+name: DevOps CI/CD Pipeline
 
 on:
   push:
@@ -6,20 +6,127 @@ on:
   pull_request:
 
 jobs:
-  build:
+  # ============================================================================
+  # STAGE 1: TEST & LINT
+  # ============================================================================
+  stage-1-test:
+    name: "Stage 1: Test & Lint"
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: "Core Concepts and Skills"
-
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run system info script
-        run: |
-          chmod +x system-info.sh
-          ./system-info.sh
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "Practical Implementation Project/app/requirements.txt"
 
-      - name: Build Docker image
-        run: docker build -t my-web-app .
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r "Practical Implementation Project/app/requirements.txt"
+
+      - name: Run Unit & API Test Suite
+        run: |
+          python -m unittest discover "Practical Implementation Project/tests"
+
+      - name: Validate Automation Scripts Syntax
+        run: |
+          chmod +x "Practical Implementation Project/scripts/"*.sh
+          chmod +x "Core Concepts and Skills/system-info.sh"
+          bash -n "Practical Implementation Project/scripts/health-check.sh"
+          bash -n "Practical Implementation Project/scripts/backup.sh"
+          bash -n "Core Concepts and Skills/system-info.sh"
+
+  # ============================================================================
+  # STAGE 2: BUILD
+  # ============================================================================
+  stage-2-build:
+    name: "Stage 2: Build Docker Images"
+    needs: stage-1-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Core Concepts Nginx Image
+        run: |
+          cd "Core Concepts and Skills"
+          docker build -t my-web-app:latest .
+
+      - name: Build Practical Project Monitoring Image
+        run: |
+          docker build -t devops-monitoring-app:latest "Practical Implementation Project"
+
+  # ============================================================================
+  # STAGE 3: PUSH
+  # ============================================================================
+  stage-3-push:
+    name: "Stage 3: Push to Registry"
+    needs: stage-2-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub (if secrets configured)
+        if: ${{ env.DOCKER_USER != '' && env.DOCKER_PASS != '' }}
+        uses: docker/login-action@v3
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push to Registry
+        if: ${{ env.DOCKER_USER != '' && env.DOCKER_PASS != '' }}
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/devops-monitoring-app:latest "Practical Implementation Project"
+          docker push ${{ secrets.DOCKER_USERNAME }}/devops-monitoring-app:latest
+
+      - name: Fallback Local Tag (when secrets not set)
+        if: ${{ env.DOCKER_USER == '' || env.DOCKER_PASS == '' }}
+        run: |
+          echo "Docker Hub credentials not configured in GitHub Secrets."
+          echo "Image successfully validated and tagged locally: devops-monitoring-app:latest"
+
+  # ============================================================================
+  # STAGE 4: DEPLOY & VERIFY
+  # ============================================================================
+  stage-4-deploy:
+    name: "Stage 4: Deploy & Health Check"
+    needs: stage-3-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Spin up Monitoring Service
+        run: |
+          cd "Practical Implementation Project"
+          docker compose up -d app
+          sleep 10
+
+      - name: Execute Synthetic Health Check Probe
+        run: |
+          cd "Practical Implementation Project"
+          chmod +x scripts/health-check.sh
+          ./scripts/health-check.sh http://localhost:5050/health
+
+      - name: Deployment Summary
+        run: |
+          echo "========================================="
+          echo " Stage 4 Deployment Completed & Healthy! "
+          echo "========================================="

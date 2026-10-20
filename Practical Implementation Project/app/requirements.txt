@@ -1,0 +1,5 @@
+flask==3.0.3
+psutil==5.9.8
+prometheus-client==0.20.0
+pytest==8.1.1
+gunicorn==22.0.0

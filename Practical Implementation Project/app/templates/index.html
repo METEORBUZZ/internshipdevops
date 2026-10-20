@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevOps Monitoring Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem 1.5rem;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .badge-status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    .card-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .progress-bar-bg {
+      background: #334155;
+      height: 8px;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 0.75rem;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--primary);
+      transition: width 0.4s ease, background 0.4s ease;
+      border-radius: 9999px;
+    }
+    .card-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.6rem;
+    }
+    .system-details {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .system-details h2 {
+      font-size: 1.15rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .table-details {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .table-details td {
+      padding: 0.65rem 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .table-details td:first-child {
+      color: var(--text-muted);
+      width: 35%;
+      font-weight: 500;
+    }
+    .table-details tr:last-child td {
+      border-bottom: none;
+    }
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>DevOps Monitoring Dashboard</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+          Real-time Container & Host Telemetry
+        </p>
+      </div>
+      <div id="statusBadge" class="badge-status">API Healthy</div>
+    </header>
+
+    <main>
+      <div class="grid">
+        <!-- CPU Card -->
+        <div class="card">
+          <div class="card-title">CPU Utilization</div>
+          <div class="card-value" id="cpuPercent">--%</div>
+          <div class="progress-bar-bg">
+            <div id="cpuBar" class="progress-bar-fill"></div>
+          </div>
+          <div class="card-meta" id="cpuCores">Cores: Loading...</div>
+        </div>
+
+        <!-- Memory Card -->
+        <div class="card">
+          <div class="card-title">Memory Usage</div>
+          <div class="card-value" id="memPercent">--%</div>
+          <div class="progress-bar-bg">
+            <div id="memBar" class="progress-bar-fill"></div>
+          </div>
+          <div class="card-meta" id="memUsage">Used: -- / Total: --</div>
+        </div>
+
+        <!-- Disk Card -->
+        <div class="card">
+          <div class="card-title">Disk Storage</div>
+          <div class="card-value" id="diskPercent">--%</div>
+          <div class="progress-bar-bg">
+            <div id="diskBar" class="progress-bar-fill"></div>
+          </div>
+          <div class="card-meta" id="diskUsage">Used: -- / Total: --</div>
+        </div>
+
+        <!-- Uptime & Processes -->
+        <div class="card">
+          <div class="card-title">Uptime & Processes</div>
+          <div class="card-value" id="uptimeVal" style="font-size: 1.5rem;">--</div>
+          <div class="card-meta" id="processCount" style="margin-top: 1.25rem;">Active Processes: --</div>
+          <div class="card-meta" id="lastUpdated">Last synced: Just now</div>
+        </div>
+      </div>
+
+      <!-- System Metadata -->
+      <section class="system-details">
+        <h2>Host & Environment Specs</h2>
+        <table class="table-details">
+          <tr>
+            <td>Hostname</td>
+            <td id="sysHostname">{{ hostname }}</td>
+          </tr>
+          <tr>
+            <td>Operating System</td>
+            <td>{{ os_name }}</td>
+          </tr>
+          <tr>
+            <td>Python Runtime</td>
+            <td>Python {{ python_version }}</td>
+          </tr>
+          <tr>
+            <td>Health Check Endpoint</td>
+            <td><a href="/api/health" target="_blank" style="color: var(--primary); text-decoration: none;">/api/health (JSON)</a></td>
+          </tr>
+          <tr>
+            <td>Metrics API Endpoint</td>
+            <td><a href="/api/metrics" target="_blank" style="color: var(--primary); text-decoration: none;">/api/metrics (JSON)</a></td>
+          </tr>
+        </table>
+      </section>
+    </main>
+
+    <footer>
+      DevOps Practical Implementation Project &bull; Auto-refreshes every 3 seconds
+    </footer>
+  </div>
+
+  <script>
+    function updateBar(barElement, value) {
+      barElement.style.width = value + '%';
+      if (value > 85) {
+        barElement.style.background = 'var(--danger)';
+      } else if (value > 65) {
+        barElement.style.background = 'var(--warning)';
+      } else {
+        barElement.style.background = 'var(--primary)';
+      }
+    }
+
+    async function fetchMetrics() {
+      try {
+        const res = await fetch('/api/metrics');
+        if (!res.ok) throw new Error('API degraded');
+        const data = await res.json();
+
+        // CPU
+        document.getElementById('cpuPercent').textContent = data.cpu.percent + '%';
+        updateBar(document.getElementById('cpuBar'), data.cpu.percent);
+        document.getElementById('cpuCores').textContent = `Logical Cores: ${data.cpu.cores}`;
+
+        // Memory
+        document.getElementById('memPercent').textContent = data.memory.percent + '%';
+        updateBar(document.getElementById('memBar'), data.memory.percent);
+        document.getElementById('memUsage').textContent = `${data.memory.used_mb} MB / ${data.memory.total_mb} MB`;
+
+        // Disk
+        document.getElementById('diskPercent').textContent = data.disk.percent + '%';
+        updateBar(document.getElementById('diskBar'), data.disk.percent);
+        document.getElementById('diskUsage').textContent = `${data.disk.used_gb} GB / ${data.disk.total_gb} GB`;
+
+        // Uptime & Processes
+        document.getElementById('uptimeVal').textContent = data.uptime;
+        document.getElementById('processCount').textContent = `Active Processes: ${data.process_count}`;
+        document.getElementById('lastUpdated').textContent = `Last synced: ${new Date().toLocaleTimeString()}`;
+
+        document.getElementById('statusBadge').textContent = 'API Healthy';
+        document.getElementById('statusBadge').style.color = 'var(--success)';
+      } catch (err) {
+        console.error('Metrics fetch error:', err);
+        document.getElementById('statusBadge').textContent = 'API Unreachable';
+        document.getElementById('statusBadge').style.color = 'var(--danger)';
+      }
+    }
+
+    fetchMetrics();
+    setInterval(fetchMetrics, 3000);
+  </script>
+</body>
+</html>
